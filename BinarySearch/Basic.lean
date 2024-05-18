@@ -25,7 +25,7 @@ def binarySearch (pair : Pair) : Pair :=
   | some ⟨_, hm⟩ =>
       let ⟨new, _⟩ := searchStep pred pair hm
       binarySearch new
-termination_by _ pair => pair.snd - pair.fst
+termination_by pair.snd - pair.fst
 
 def mid'_spec_converse := ∀ p, mid' p = none → p.2 ≤ p.1 + 1
 
