@@ -188,6 +188,22 @@ def containsTarget (arr : List α) (target : α) : Prop :=
 
 example : returnIndex' arr target = .before → ∀(h: i < arr.length), target < arr[i]'h := sorry
 
+lemma arr_ret_index_le_target (is_index : returnIndex' arr target = .index i) (in_bounds : i < arr.length): arr[i]'in_bounds ≤ target := by
+  cases pos : returnIndex' arr target with
+  | before => sorry
+  | index j => sorry
+  | after => sorry
+  done
+
+lemma ret_index_index_in_bounds (is_index : returnIndex' arr target = .index i) : i < arr.length := by
+  unfold returnIndex' at is_index
+  simp at is_index
+  split at is_index
+  . contradiction
+  . split at is_index
+    . sorry
+    . contradiction
+
 
 theorem bsearch_finds_target_if_target_exists [LinearOrder α] (arr : List α) (target : α)
     (sorted : Sorted arr) (contains : containsTarget arr target) :
@@ -199,22 +215,32 @@ theorem bsearch_finds_target_if_target_exists [LinearOrder α] (arr : List α) (
     unfold containsTarget
     simp
     intro i
-    cases foo : returnIndex' arr target with
+    cases ret_index_eq : returnIndex' arr target with
     | before => sorry
     | index j =>
       have := h j
+      have j_in_bounds := (ret_index_index_in_bounds arr target ret_index_eq)
       rw [not_and_or] at this
       cases this
-      . obtain lt | eq | gt := Nat.lt_trichotomy i j
-      . sorry
-          -- Try this first
+      . rename_i target_not_at_j
+        obtain lt | eq | gt := Nat.lt_trichotomy i j
+        . have arr_j_le_target : arr[j] ≤ target := arr_ret_index_le_target arr target ret_index_eq _
+          have arr_j_ne_target : arr[j] ≠ target := by
+            unfold containsTargetAt at target_not_at_j
+            simp only [not_exists] at target_not_at_j
+            exact target_not_at_j j_in_bounds
+          have arr_j_lt_target : arr[j] < target := lt_of_le_of_ne arr_j_le_target arr_j_ne_target
+          have arr_i_le_arr_j : arr[i] ≤ arr[j] := sorted i j ⟨by linarith, j_in_bounds⟩
+          have arr_i_lt_target : arr[i] < target :=
+            calc
+            arr[i] ≤ arr[j] := arr_i_le_arr_j
+            arr[j] < target := arr_j_lt_target
+          have arr_i_ne_target := ne_of_lt arr_i_lt_target
+          unfold containsTargetAt
+          simp only [not_exists]
+          intro h
+          assumption
+        . rwa [eq]
+        . sorry
+      . contradiction
     | after => sorry
-    have not_at_i_or_not_index := h i -- NONONONONONO
-    rw [not_and_or] at not_at_i_or_not_index
-    cases not_at_i_or_not_index
-    . assumption
-    . rename_i not_index
-      by_cases 0 < arr.length
-      . sorry
-      . sorry
-    done
