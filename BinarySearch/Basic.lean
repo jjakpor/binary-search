@@ -187,7 +187,9 @@ lemma ret_index_index_in_bounds (is_index : returnIndex' arr target = .index i) 
   split at is_index
   . contradiction
   . split at is_index
-    . sorry -- Constructor injectivity
+    . rename_i j _ hj
+      have h : i = j := sorry -- Constructor injectivity
+      linarith
     . contradiction
 
 lemma arr_succ_ret_index_gt_target : returnIndex' arr target = .index i → (_ : i + 1 < arr.length) → target < arr[i+1] := by
