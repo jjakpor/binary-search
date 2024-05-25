@@ -176,13 +176,10 @@ def containsTarget (arr : List α) (target : α) : Prop :=
 
 lemma arr_ret_index_le_target (is_index : returnIndex' arr target = .index i) (in_bounds : i < arr.length): arr[i]'in_bounds ≤ target := by
   cases pos : returnIndex' arr target with
-  | before => sorry
+  | before => sorry -- Contradiction from constructor injectivity
   | index j => sorry
-  | after => sorry
+  | after => sorry -- Contradiction from constructor injectivity
   done
-
-lemma arr_succ_ret_index_gt_target (is_index : returnIndex' arr target = .index i) (succ_in_bounds : i + 1 < arr.length) : arr[i + 1] > target := by
-  sorry
 
 lemma ret_index_index_in_bounds (is_index : returnIndex' arr target = .index i) : i < arr.length := by
   unfold returnIndex' at is_index
@@ -190,10 +187,10 @@ lemma ret_index_index_in_bounds (is_index : returnIndex' arr target = .index i) 
   split at is_index
   . contradiction
   . split at is_index
-    . sorry
+    . sorry -- Constructor injectivity
     . contradiction
 
-lemma foo : returnIndex' arr target = .index i → (_ : i + 1 < arr.length) → target < arr[i+1] := by
+lemma arr_succ_ret_index_gt_target : returnIndex' arr target = .index i → (_ : i + 1 < arr.length) → target < arr[i+1] := by
   sorry
 
 lemma bar (i : ℕ): returnIndex' arr target = .before → ∀(h : i < arr.length), target < arr[i]'h := by sorry
@@ -255,10 +252,10 @@ theorem bsearch_finds_target_if_target_exists
           -- This is the subcase where i > j, i.e., our arbitrary nat is greater than the returned index.
           . have i_ge_succ_j : j + 1 ≤ i := by linarith
             by_cases h : i < arr.length
-            -- If i is in bounds, then j + 1 is also in bounds. arr[j+1] > target by foo. Since arr is sorted, arr[i] > arr[j+1]. So arr[i] > target
+            -- If i is in bounds, then j + 1 is also in bounds. arr[j+1] > target. Since arr is sorted, arr[i] > arr[j+1]. So arr[i] > target
             have arr_i_ge_target : target < arr[i] :=
               calc
-              target < arr[j+1] := foo _ _ ret_index_eq (by linarith)
+              target < arr[j+1] := arr_succ_ret_index_gt_target _ _ ret_index_eq (by linarith)
               arr[j+1] ≤ arr[i] := sorted (j + 1) i ⟨by linarith, by assumption⟩
             unfold containsTargetAt
             simp only [not_exists]
