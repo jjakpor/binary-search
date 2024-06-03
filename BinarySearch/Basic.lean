@@ -76,13 +76,15 @@ def searchPred [LinearOrder α] (arr : List α) (target : α) (i : ℕ) : Bool :
   | j + 1 => if h: j < arr.length then arr[j]'h > target else true
 
 
-lemma sum_div {a b c : ℕ} : a/c + b/c ≤ (a + b) / c  := sorry -- TODO: find in mathlib or prove manually (as an exercise)
+lemma sum_div {a b c : ℕ} : a/c + b/c ≤ (a + b) / c  := by
+  exact Nat.add_div_le_add_div a b c
+
 
 def searchMid (p : Pair) : Option { m // Between p m } := if h : p.snd - p.fst > 1 then some ⟨p.fst + (p.snd - p.fst) / 2, by
     unfold Between
     simp
     apply And.intro
-    . have ⟨n, hn⟩: ∃n, p.snd - p.fst = 2 + n := sorry
+    . have ⟨n, hn⟩: ∃n, p.snd - p.fst = 2 + n := Nat.exists_eq_add_of_le h
       rw [hn]
       have := @sum_div 2 n 2
       rw [Nat.div_self] at this
@@ -93,8 +95,21 @@ def searchMid (p : Pair) : Option { m // Between p m } := if h : p.snd - p.fst >
         done
       . simp
       done
-    . sorry
+    . refine Nat.add_lt_of_lt_sub' ?right.a
+      exact Nat.log2_terminates (p.2 - p.1) h
   ⟩ else none
+
+
+theorem searchMid_spec_converse : mid'_spec_converse searchMid := by
+  unfold mid'_spec_converse
+  intros pair mid_is_none
+  unfold searchMid at mid_is_none
+  split at mid_is_none
+  . contradiction
+  next h =>
+    simpa [add_comm] using h
+
+
 
 inductive SearchPosition
 | before
@@ -134,7 +149,7 @@ lemma inv_true_at_start : Invariant (searchPred arr target) (0, List.length arr 
   repeat (unfold searchPred; simp)
   done
 
-#check (inv_true_at_start arr target).left
+
 lemma index_i_imp_arr_i_le_target (ret_index_is_index : returnIndex' arr target = .index i) : arr[i]'(index_i_imp_i_lt_length arr target ret_index_is_index) ≤ target := by
   unfold returnIndex' at ret_index_is_index
   simp at ret_index_is_index
@@ -174,12 +189,39 @@ def containsTargetAt (arr : List α) (target : α) (i : ℕ) : Prop :=
 def containsTarget (arr : List α) (target : α) : Prop :=
   ∃ (i : ℕ), containsTargetAt arr target i
 
+
+lemma invariant_of_is_index (is_index : returnIndex' arr target = .index i) : Invariant (searchPred arr target) ((i + 1), (i + 2)) := by
+  unfold returnIndex' at is_index
+  repeat (simp at is_index; split at is_index)
+  next heq lt =>
+    cases is_index
+    have inv := invariant (searchPred arr target) searchMid (inv_true_at_start arr target)
+    have ⟨_, adj⟩  := adjacent (searchPred arr target) searchMid searchMid_spec_converse (0, arr.length + 1) (by linarith) -- Make special form of adjacent for searchPred and searchMid  and (0, arrLength + 1) to avoid linarith
+    simp [*] at *
+    rw [heq] at inv
+    assumption
+  . contradiction
+
+lemma invariant_of_is_before (is_before : returnIndex' arr target = .before) : Invariant (searchPred arr target) (0, 1) := by
+  unfold returnIndex' at is_before
+  repeat (simp at is_before; split at is_before)
+  next heq =>
+    cases is_before
+    have inv := invariant (searchPred arr target) searchMid (inv_true_at_start arr target)
+    have ⟨_, adj⟩  := adjacent (searchPred arr target) searchMid searchMid_spec_converse (0, arr.length + 1) (by linarith) -- Make special form of adjacent for searchPred and searchMid  and (0, arrLength + 1) to avoid linarith
+    simp [*] at *
+    rw [heq] at inv
+    assumption
+  . split at is_before; repeat contradiction
+
 lemma arr_ret_index_le_target (is_index : returnIndex' arr target = .index i) (in_bounds : i < arr.length): arr[i]'in_bounds ≤ target := by
-  cases pos : returnIndex' arr target with
-  | before => sorry -- Contradiction from constructor injectivity
-  | index j => sorry
-  | after => sorry -- Contradiction from constructor injectivity
-  done
+  have inv := invariant_of_is_index arr target is_index
+  have false_on_fst : ¬searchPred arr target (i + 1) := inv.left
+  -- TODO: in_bounds → false_on_fst →  arr[i] ≤ target could be a lemma lemma
+  simp [searchPred] at false_on_fst
+  cases false_on_fst
+  assumption
+
 
 lemma ret_index_index_in_bounds (is_index : returnIndex' arr target = .index i) : i < arr.length := by
   unfold returnIndex' at is_index
@@ -188,14 +230,58 @@ lemma ret_index_index_in_bounds (is_index : returnIndex' arr target = .index i) 
   . contradiction
   . split at is_index
     . rename_i j _ hj
-      have h : i = j := sorry -- Constructor injectivity
+      have h : i = j := by -- Constructor injectivity
+        rw [SearchPosition.index.injEq] at is_index
+        rwa [Eq.comm]
       linarith
     . contradiction
 
 lemma arr_succ_ret_index_gt_target : returnIndex' arr target = .index i → (_ : i + 1 < arr.length) → target < arr[i+1] := by
-  sorry
+  intros is_index i_succ_in_bounds
+  have inv := invariant_of_is_index arr target is_index
+  have true_on_snd : searchPred arr target (i + 2) := inv.right
+  -- TODO: i_succ_in_bounds → true_on_snd → target < arr[i+1] could be a lemma
+  simp [searchPred] at true_on_snd
+  apply true_on_snd
+  assumption
 
-lemma bar (i : ℕ): returnIndex' arr target = .before → ∀(h : i < arr.length), target < arr[i]'h := by sorry
+
+
+
+lemma bar (sorted : Sorted arr) (i : ℕ): returnIndex' arr target = .before → ∀(h : i < arr.length), target < arr[i]'h := by
+  intros is_before i_lt_length
+  have inv := invariant_of_is_before arr target is_before
+  have true_on_one : searchPred arr target 1  := inv.right
+  -- arr[0] > target or 0 > arr.length.
+  simp [searchPred, -List.length_pos] at true_on_one
+  have zero_lt_length : 0 < arr.length := by linarith
+  have h : target < arr[0] := true_on_one zero_lt_length
+  have : arr[0] ≤ arr[i] := sorted 0 i ⟨zero_lt_length, i_lt_length⟩
+  exact gt_of_ge_of_gt this h
+
+
+
+lemma return_index_is_not_after : returnIndex' arr target = SearchPosition.after → False := by
+  intro h
+  unfold returnIndex' at h
+  simp at h
+  split at h
+  . simp at h
+  . rename_i heq
+    split at h
+    . assumption
+    -- searchPred must be true if j is out of bounds, but it must also be false because of invariant. contradiction
+    . rename_i _ j h'
+      have p : searchPred arr target j.succ  := by
+        unfold searchPred
+        split
+        . contradiction
+        . split
+          . linarith
+          . simp
+      have not_p : ¬searchPred arr target _ := heq ▸ (invariant (searchPred arr target) searchMid (inv_true_at_start arr target)).left
+      contradiction
+
 
 theorem bsearch_finds_target_if_target_exists
     (sorted : Sorted arr) (contains : containsTarget arr target) :
@@ -212,7 +298,7 @@ theorem bsearch_finds_target_if_target_exists
     SearchPosition.index j for some j, or SearchPosition.after -/
     cases ret_index_eq : returnIndex' arr target with
     | before => -- If returnIndex' is before, that means the target is less than everything in the array.
-      have := bar _ _ i ret_index_eq -- bar means target is less than everything
+      have := bar _ _  sorted i ret_index_eq -- bar means target is less than everything
       -- Start golf section. Try to make one line
       unfold containsTargetAt
       simp only [not_exists]
@@ -247,13 +333,12 @@ theorem bsearch_finds_target_if_target_exists
             have arr_i_ne_target := ne_of_lt arr_i_lt_target
             unfold containsTargetAt
             simp only [not_exists]
-            intro h
+            intro _
             assumption
           -- This is the subcase where i = j, i.e., our arbitrary nat is equal to the returned index.
           . rwa [eq]
           -- This is the subcase where i > j, i.e., our arbitrary nat is greater than the returned index.
-          . have i_ge_succ_j : j + 1 ≤ i := by linarith
-            by_cases h : i < arr.length
+          . by_cases h : i < arr.length
             -- If i is in bounds, then j + 1 is also in bounds. arr[j+1] > target. Since arr is sorted, arr[i] > arr[j+1]. So arr[i] > target
             have arr_i_ge_target : target < arr[i] :=
               calc
@@ -271,5 +356,8 @@ theorem bsearch_finds_target_if_target_exists
       /- This is the case where the returned index is not j. But that contradicts our earlier assumption
          that defined this case in the first place. -/
       | inr _ => contradiction
-    | after => sorry -- This is impossible. returnIndex' always corresponds to binary search's first returned item, which the searchPred should be false on
+    -- This is impossible. returnIndex' always corresponds to binary search's first returned item, which the searchPred should be false on
+    | after =>
+      exfalso
+      exact return_index_is_not_after _ _ ret_index_eq
     done
