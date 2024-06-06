@@ -217,7 +217,7 @@ lemma invariant_of_is_before (is_before : returnIndex' arr target = .before) : I
 lemma arr_ret_index_le_target (is_index : returnIndex' arr target = .index i) (in_bounds : i < arr.length): arr[i]'in_bounds ≤ target := by
   have inv := invariant_of_is_index arr target is_index
   have false_on_fst : ¬searchPred arr target (i + 1) := inv.left
-  -- TODO: in_bounds → false_on_fst →  arr[i] ≤ target could be a lemma lemma
+  -- TODO: in_bounds → false_on_fst → arr[i] ≤ target could be a lemma
   simp [searchPred] at false_on_fst
   cases false_on_fst
   assumption
@@ -248,7 +248,7 @@ lemma arr_succ_ret_index_gt_target : returnIndex' arr target = .index i → (_ :
 
 
 
-lemma bar (sorted : Sorted arr) (i : ℕ): returnIndex' arr target = .before → ∀(h : i < arr.length), target < arr[i]'h := by
+lemma before_imp_lt_all (sorted : Sorted arr) (i : ℕ): returnIndex' arr target = .before → ∀(h : i < arr.length), target < arr[i]'h := by
   intros is_before i_lt_length
   have inv := invariant_of_is_before arr target is_before
   have true_on_one : searchPred arr target 1  := inv.right
@@ -298,7 +298,7 @@ theorem bsearch_finds_target_if_target_exists
     SearchPosition.index j for some j, or SearchPosition.after -/
     cases ret_index_eq : returnIndex' arr target with
     | before => -- If returnIndex' is before, that means the target is less than everything in the array.
-      have := bar _ _  sorted i ret_index_eq -- bar means target is less than everything
+      have := before_imp_lt_all _ _  sorted i ret_index_eq -- target is less than everything
       -- Start golf section. Try to make one line
       unfold containsTargetAt
       simp only [not_exists]
